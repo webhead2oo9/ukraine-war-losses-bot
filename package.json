@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Generate and post an English daily summary of estimated Russian losses in Ukraine.",
+  "license": "MIT",
   "scripts": {
     "generate": "node src/cli.js --dry-run",
     "post": "node src/cli.js",

@@ -1,0 +1,55 @@
+name: Post daily loss summary
+
+on:
+  schedule:
+    # Retry at off-peak minutes in case the upstream daily update is late.
+    - cron: "17 6,7,8 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render without posting to Discord"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-loss-summary
+  cancel-in-progress: false
+
+jobs:
+  render-and-post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Render preview
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: npm run generate
+
+      - name: Post current report
+        if: github.event_name == 'schedule' || !inputs.dry_run
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: npm run post -- --require-today
+
+      - name: Save posting state
+        if: github.event_name == 'schedule' || !inputs.dry_run
+        run: |
+          if git diff --quiet -- state/last-posted-date.txt; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/last-posted-date.txt
+          git commit -m "chore: record daily Discord post"
+          git push

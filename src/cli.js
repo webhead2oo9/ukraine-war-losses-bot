@@ -55,7 +55,7 @@ async function main() {
     throw new Error("DISCORD_WEBHOOK_URL is required unless --dry-run is used.");
   }
 
-  await postToDiscord({ webhookUrl, report, imagePath: outputPath });
+  await postToDiscord({ webhookUrl, imagePath: outputPath });
   await writeFile(STATE_PATH, `${report.date}\n`, "utf8");
   console.log(`Posted ${report.date} to Discord and updated state.`);
 }

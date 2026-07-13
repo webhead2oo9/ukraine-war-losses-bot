@@ -2,7 +2,9 @@
 
 Generates an English 1080×1280 PNG from the two newest records in
 [`lod-db/orc-losses`](https://github.com/lod-db/orc-losses), calculates each daily
-increase, and optionally posts the result to a Discord webhook.
+increase, and optionally posts the resulting PNG to a Discord webhook. The
+webhook message contains only the image attachment, with no accompanying text,
+embed, or mentions.
 
 The image is an unofficial automated summary. Its footer identifies the Ministry
 of Defence of Ukraine as the original source and `lod-db/orc-losses` as the data

@@ -60,6 +60,13 @@ export function buildReport(current, previous) {
   if (current.date <= previous.date) {
     throw new Error("The current record must be newer than the previous record.");
   }
+  const intervalMilliseconds =
+    Date.parse(`${current.date}T00:00:00Z`) - Date.parse(`${previous.date}T00:00:00Z`);
+  if (intervalMilliseconds !== 24 * 60 * 60 * 1000) {
+    throw new Error(
+      `Cannot calculate a daily change from non-consecutive reports (${previous.date} to ${current.date}).`
+    );
+  }
 
   return {
     date: current.date,
@@ -98,4 +105,11 @@ export function dateInKyiv(now = new Date()) {
   }).formatToParts(now);
   const part = (type) => parts.find((item) => item.type === type).value;
   return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function isRecentReportDate(reportDate, today = dateInKyiv()) {
+  const ageMilliseconds =
+    Date.parse(`${today}T00:00:00Z`) - Date.parse(`${reportDate}T00:00:00Z`);
+  const ageDays = ageMilliseconds / (24 * 60 * 60 * 1000);
+  return ageDays === 0 || ageDays === 1;
 }

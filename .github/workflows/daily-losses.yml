@@ -1,9 +1,15 @@
 name: Post daily loss summary
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "state/last-posted-date.txt"
+  pull_request:
+    branches: [main]
   schedule:
-    # Retry at off-peak minutes in case the upstream daily update is late.
-    - cron: "17 6,7,8 * * *"
+    # Retry across the day because upstream updates occasionally arrive late.
+    - cron: "17 0,3,9,15,18 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -12,14 +18,15 @@ on:
         default: true
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: daily-loss-summary
   cancel-in-progress: false
 
 jobs:
-  render-and-post:
+  test:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +39,21 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  render-and-post:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
       - name: Render preview
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         run: npm run generate
@@ -40,7 +62,7 @@ jobs:
         if: github.event_name == 'schedule' || !inputs.dry_run
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: npm run post -- --require-today
+        run: npm run post -- --require-recent
 
       - name: Save posting state
         if: github.event_name == 'schedule' || !inputs.dry_run
@@ -52,4 +74,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state/last-posted-date.txt
           git commit -m "chore: record daily Discord post"
-          git push
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            echo "State push attempt $attempt failed; retrying."
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 5))
+            fi
+          done
+          exit 1

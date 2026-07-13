@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fetchReport, dateInKyiv } from "./data.js";
+import { fetchReport, dateInKyiv, isRecentReportDate } from "./data.js";
 import { postToDiscord } from "./discord.js";
 import { renderPng } from "./render.js";
 
@@ -23,12 +23,14 @@ async function readLastPostedDate() {
 
 async function main() {
   const dryRun = hasFlag("--dry-run");
-  const requireToday = hasFlag("--require-today");
+  const requireRecent = hasFlag("--require-recent");
   const report = await fetchReport();
   const today = dateInKyiv();
 
-  if (requireToday && report.date !== today) {
-    console.log(`Upstream data is ${report.date}; waiting for Kyiv date ${today}.`);
+  if (requireRecent && !isRecentReportDate(report.date, today)) {
+    console.log(
+      `Upstream data is ${report.date}; expected an unposted report from ${today} or the preceding day.`
+    );
     return;
   }
 

@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildReport, newestPair, validateDataset } from "../src/data.js";
+import {
+  buildReport,
+  isRecentReportDate,
+  newestPair,
+  validateDataset
+} from "../src/data.js";
 
 const record = (date, personnel, tanks) => ({
   date,
@@ -36,10 +41,28 @@ test("buildReport calculates daily changes", () => {
   assert.equal(report.metrics.find(({ key }) => key === "tanks").change, 1);
 });
 
+test("buildReport rejects a misleading multi-day delta", () => {
+  assert.throws(
+    () =>
+      buildReport(
+        record("2026-07-13", 120, 11),
+        record("2026-07-11", 100, 10)
+      ),
+    /non-consecutive reports/
+  );
+});
+
 test("validateDataset rejects malformed metrics", () => {
   const broken = record("2026-07-13", "120", 11);
   assert.throws(
     () => validateDataset([broken, record("2026-07-12", 100, 10)]),
     /invalid personnel/
   );
+});
+
+test("recent report dates allow today and yesterday but reject older or future data", () => {
+  assert.equal(isRecentReportDate("2026-07-13", "2026-07-13"), true);
+  assert.equal(isRecentReportDate("2026-07-12", "2026-07-13"), true);
+  assert.equal(isRecentReportDate("2026-07-11", "2026-07-13"), false);
+  assert.equal(isRecentReportDate("2026-07-14", "2026-07-13"), false);
 });
